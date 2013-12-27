@@ -1,0 +1,216 @@
+#!/usr/bin/perl
+
+# Mineserv by Christoper "BlackCow" Handwerker
+# www.homebrewtechnology.org
+# email: blackcow99@gmail.com or chandwer@student.fitchburgstate.edu
+
+# INSTALLING THE SCRIPT
+# Install "screen" if you don't already have it
+# Edit the SETTINGS variables (down below) to fit your environment.
+# Place this file in /etc/init.d/
+# Make it executable: 			 sudo chmod a+x /etc/init.d/mineserv
+# Add it to the init list: 	 sudo update-rc.d mineserv defaults
+
+
+# UNINSTALLING THE SCRIPT
+# Simply delete the file: 		 sudo rm /etc/init.d/mineserv
+# Remove from the init list:   update-rc.d -f mineserv defaults
+
+# USING THE SCRIPT
+# Usage: /etc/init.d/mineserv {start|stop|status|backup|cleanup [days]}
+# (Backup makes a .tar.gz archive of the world folder in the backup directory
+# (Cleanup deletes backups older than [days] given in the backup directory)
+#
+# To send a command to the server console: /etc/init.d/mineserv command "your command"
+# To bring up the server console run: screen -r mineserv (Make sure run as the correct user)
+
+### BEGIN INIT INFO
+# Provides:   mineserv
+# Required-Start: $local_fs $remote_fs
+# Required-Stop:  $local_fs $remote_fs
+# Should-Start:   $network
+# Should-Stop:    $network
+# Default-Start:  2 3 4 5
+# Default-Stop:   0 1 6
+# Short-Description:    Minecraft server
+# Description:    Starts the minecraft server
+### END INIT INFO
+
+# SETTINGS
+
+$SERVERJAR = "FTBServer-1.6.4-953.jar";	# Name of the server jar file
+$SERVICENAME = "mineserv";				# Name of the service
+$SERVERBASE = "/home/bung/Minecraft/";
+$SERVERDIR = "Direwolf_1.6.4_1.0.7";
+$SERVERPATH = "$SERVERBASE$SERVERDIR";		# Directory where the server lives
+$BACKUPDIR = "/home/bung/Minecraft/backups";					# Name of backup directory
+$USERNAME = "bung";				# User that the server should run as
+
+
+chomp($CURRENTUSER = `whoami`);	# Determines what user is running the command to see if password is required
+
+sub start
+{
+	if(&status == 1)
+	{
+		print "Service is already running (pid $pid)\n";
+	}
+	else
+	{
+		if($CURRENTUSER eq $USERNAME)
+		{
+			`cd $SERVERPATH && screen -dmS $SERVICENAME java -Xmx2048M -Xms2048M -jar $SERVERJAR nogui`;
+		}
+		else
+		{
+			print "Enter password for user $USERNAME\n";
+			`cd $SERVERPATH && su - $USERNAME -c "screen -dmS $SERVICENAME java -Xmx1024M -Xms1024M -jar $SERVERJAR nogui"`;
+		}
+	}
+}
+sub stop
+{
+	if(&status == 0)
+	{
+		print "Service is already stopped.\n";
+	}
+	else
+	{
+		#Send stop command to server
+		&command("stop");
+	}
+}
+sub restart
+{
+	if(&status == 0)
+	{
+		print "Service is not currently running.\n";
+	}
+	else
+	{
+		&stop;
+		while(&status == 1)
+		{
+			sleep(1);
+		}
+		&start;
+		print "Service has been restarted\n";
+	}
+}
+sub status
+{
+	#Returns 1 if service is running and 0 if it is not running.
+	my $process = `ps ax | grep -v grep | grep -v -i SCREEN | grep $SERVERJAR`;	
+
+	if($process eq "")
+	{
+		return 0;
+	}
+	else
+	{
+		if ($process =~ m/(\d+)/)		#Strips out process PID number
+		{		
+			$pid = $1;	
+		}
+		return 1;
+	}
+}
+sub command
+{
+	if($CURRENTUSER eq $USERNAME)
+	{
+		`screen -p 0 -S $SERVICENAME -X eval 'stuff \"$_[0]\"\r'`
+	}
+	else
+	{
+		my $CMD = "`screen -p 0 -S $SERVICENAME -X eval 'stuff \"$_[0]\"\r'`";
+		print "Enter password for user $USERNAME\n";
+		`su - $USERNAME -c "$CMD"`;
+	}
+}
+sub give
+{
+	my $user = $_[0];
+	my $item_id = int($_[1]);
+	my $amount = int($_[2]);
+	#Distributes item amount evenly into 64 chunks
+	while($amount > 0)
+	{
+		if($amount > 64)
+		{
+			&command("give $user $item_id 64");
+			$amount -= 64;
+		}
+		else
+		{
+			&command("give $user $item_id $amount");
+			$amount = 0;
+		}
+	}
+}
+sub backup
+{
+	my $filename = "$SERVERDIR_`date +%y-%m-%d_%H-%M-%S`.tar.gz";
+
+	&command("save-off");
+	&command("save-all");
+	sleep(2);
+	&command("say Mineserv is making a world backup.");
+	`cd $SERVERBASE && tar -czaf $BACKUPDIR/$filename $SERVERDIR`;
+	&command("save-on");
+}
+sub cleanup
+{
+	print("Deleted backups older that $_[0] days.\n");
+	`cd "$SERVERPATH" && find "$BACKUPDIR" -mtime "+$_[0]" -type f -exec rm -rf \{\} \\;`;
+}
+#Command tree
+$command = $ARGV[0];
+
+if($command eq "start")
+{
+	&start;
+}
+elsif($command eq "stop")
+{
+	&stop;
+}
+elsif($command eq "restart")
+{
+	&restart;
+}
+elsif($command eq "status")
+{
+	if(&status == 1)
+	{
+		print "Minecraft server is running (pid $pid).\n";
+	}
+	else
+	{
+		print "Minecraft server is not running.\n";
+	}
+}
+elsif($command eq "command")
+{
+	&command($ARGV[1]);
+}
+elsif($command eq "give")
+{
+	&give($ARGV[1], $ARGV[2], $ARGV[3]);
+}
+elsif($command eq "backup")
+{
+	&backup;
+}
+elsif($command eq "cleanup")
+{
+	&cleanup($ARGV[1]);
+}
+else
+{
+	print "\nUsage: /etc/init.d/mineserv {start|stop|restart|status|backup|cleanup [days]}\n";
+	print "(Backup makes a .tar.gz archive of the world folder in \"$BACKUPDIR\")\n";
+	print "(Cleanup deletes backups older than [days] given in \"$BACKUPDIR\")\n\n";
+	print "To send command to console: /etc/init.d/mineserv command \"your command\"\n\n";
+	print "To bring up the server console run: screen -r $SERVICENAME\n(Make sure run as user: $USERNAME)\n\n";
+}
