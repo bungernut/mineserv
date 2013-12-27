@@ -156,7 +156,7 @@ sub backup
 	&command("save-all");
 	sleep(2);
 	&command("say Mineserv is making a world backup.");
-	`cd $SERVERBASE && tar -czaf $BACKUPDIR/$filename $SERVERDIR`;
+	`cd $SERVERBASE && tar -czaf $SERVERDIR/$filename $SERVERDIR`;
 	&command("save-on");
 }
 sub cleanup
