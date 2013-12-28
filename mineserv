@@ -150,14 +150,17 @@ sub give
 }
 sub backup
 {
-	my $filename = "$SERVERDIR_`date +%y-%m-%d_%H-%M-%S`.tar.gz";
+	my $filename = "$SERVERDIR-`date +%y-%m-%d_%H-%M-%S`.tar.gz";
 
+	&command("say Mineserv is going to make a world backup in 30 sec.");
+	sleep(30);
 	&command("save-off");
 	&command("save-all");
-	sleep(2);
-	&command("say Mineserv is making a world backup.");
-	`cd $SERVERBASE && tar -czaf $SERVERDIR/$filename $SERVERDIR`;
+	sleep(30);
+	&command("say Mineserv is making a world backup. $filename");
+	`tar -czf $BACKUPDIR/$filename $SERVERPATH`;
 	&command("save-on");
+	&command("say Mineserv is DONE making a world backup.");
 }
 sub cleanup
 {
