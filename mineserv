@@ -59,12 +59,12 @@ sub start
 	{
 		if($CURRENTUSER eq $USERNAME)
 		{
-			`cd $SERVERPATH && screen -dmS $SERVICENAME java -Xmx2048M -Xms2048M -jar $SERVERJAR nogui`;
+			`cd $SERVERPATH && screen -dmS $SERVICENAME java -Xmx1500M -Xms1500M -XX:MaxPermSize=500M -jar $SERVERJAR nogui`;
 		}
 		else
 		{
 			print "Enter password for user $USERNAME\n";
-			`cd $SERVERPATH && su - $USERNAME -c "screen -dmS $SERVICENAME java -Xmx1024M -Xms1024M -jar $SERVERJAR nogui"`;
+			`cd $SERVERPATH && su - $USERNAME -c "screen -dmS $SERVICENAME java -Xmx1500M -Xms1500M -XX:MaxPermSize=500M -jar $SERVERJAR nogui"`;
 		}
 	}
 }
